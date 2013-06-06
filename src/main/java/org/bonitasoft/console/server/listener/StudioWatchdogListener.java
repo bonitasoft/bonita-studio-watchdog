@@ -15,6 +15,7 @@
 package org.bonitasoft.console.server.listener;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
@@ -109,7 +110,7 @@ public class StudioWatchdogListener implements ServletContextListener {
     private static boolean isAlive(final int port, final long timer) throws IOException {
         final SocketChannel sChannel = SocketChannel.open();
         final Socket socket = sChannel.socket();
-        socket.connect(new InetSocketAddress(port));
+        socket.connect(new InetSocketAddress(InetAddress.getByName("localhost"),port));
         while (!sChannel.finishConnect()) {
             try {
                 Thread.sleep(100);
