@@ -128,38 +128,38 @@ public class StudioWatchdogListener implements ServletContextListener {
 
             }
         }
-        
+
         LOGGER.debug("Bonita Studio JVM is alive");
         return true;
     }
 
     private static void shutdownTomcat() {
-	    try {
-	        // We expect to have only one MBean server. Get it.
-	        MBeanServer mBeanServer = MBeanServerFactory.findMBeanServer(null).get(0);
-	    
-	        // Get Server object name
-    	    ObjectName name = new ObjectName("Catalina", "type", "Server");
-    	    
-    	    // Get the server object
-    	    Server server = (Server) mBeanServer.getAttribute(name, "managedResource");
-    	    
-    	    // Get adress and port on which we can send the shutdown command
-    	    String address = server.getAddress();
-    	    int port = server.getPort();
-    	    
-    	    // Get the shutdown command that we need to send
-    	    String shutdown = server.getShutdown();
-    	    
-    	    // Connect and send the shutdown command    	    
+        try {
+            // We expect to have only one MBean server. Get it.
+            MBeanServer mBeanServer = MBeanServerFactory.findMBeanServer(null).get(0);
+
+            // Get Server object name
+            ObjectName name = new ObjectName("Catalina", "type", "Server");
+
+            // Get the server object
+            Server server = (Server) mBeanServer.getAttribute(name, "managedResource");
+
+            // Get adress and port on which we can send the shutdown command
+            String address = server.getAddress();
+            int port = server.getPort();
+
+            // Get the shutdown command that we need to send
+            String shutdown = server.getShutdown();
+
+            // Connect and send the shutdown command    	    
             Socket clientSocket = new Socket(address, port);
             clientSocket.getOutputStream().write(shutdown.getBytes());
             clientSocket.getOutputStream().flush();
             clientSocket.getOutputStream().close();
             clientSocket.close();
-	    } catch (Exception e) {
-	        LOGGER.error("Error while trying to shutdown Tomcat from watchdog web application", e);
-	    }
+        } catch (Exception e) {
+            LOGGER.error("Error while trying to shutdown Tomcat from watchdog web application", e);
+        }
    }
 
 }
