@@ -20,6 +20,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.Charset;
 
 import javax.management.MBeanServer;
 import javax.management.MBeanServerFactory;
@@ -146,7 +147,7 @@ public class StudioWatchdogListener implements ServletContextListener {
             // Get the server object
             Server server = (Server) mBeanServer.getAttribute(name, "managedResource");
             
-            // Get adress and port on which we can send the shutdown command
+            // Get address and port on which we can send the shutdown command
             String address = server.getAddress();
             int port = server.getPort();
 
@@ -158,7 +159,7 @@ public class StudioWatchdogListener implements ServletContextListener {
                     Socket clientSocket = new Socket(address, port);
                     OutputStream outputStream = clientSocket.getOutputStream();
             ) {
-                outputStream.write(shutdown.getBytes());
+                outputStream.write(shutdown.getBytes(Charset.forName("UTF-8")));
                 outputStream.flush();
                 outputStream.close();
                 clientSocket.close();
