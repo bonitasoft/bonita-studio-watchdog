@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009 BonitaSoft S.A.
+ * Copyright (C) 2009-2015 Bonitasoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,24 +15,32 @@
 package org.bonitasoft.console.server.listener;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.nio.charset.Charset;
 
+import javax.management.MBeanServer;
+import javax.management.MBeanServerFactory;
+import javax.management.ObjectName;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
+
+import org.apache.catalina.Server;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Studio Watchdog Servlet.
  * 
  * @author Julien Mege
+ * @author Antoine Mottier
  */
 public class StudioWatchdogListener implements ServletContextListener {
 
-    private static final Logger LOGGER = Logger.getLogger(StudioWatchdogListener.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(StudioWatchdogListener.class);
 
     private static final int PORT = 6969;
 
@@ -50,20 +58,16 @@ public class StudioWatchdogListener implements ServletContextListener {
             public void run() {
                 final int port = getPort();
                 final long timer = getTimer();
-                if (LOGGER.isLoggable(Level.WARNING)) {
-                    LOGGER.log(Level.WARNING, "Bonita Studio watchdog process has started on "+port+" with a delay of "+timer+"ms");
-                }
+                
+                LOGGER.warn("Bonita Studio watchdog process has started on port {} with a delay set to {} ms", port, timer);
+                
                 try {
                     while (isAlive(port, timer)) {
                     }
                 } catch (final IOException e) {
-                    if (LOGGER.isLoggable(Level.WARNING)) {
-                        LOGGER.log(Level.WARNING, "Bonita Studio process has been killed, terminating tomcat process properly");
-                    }
-                    if (LOGGER.isLoggable(Level.FINE)) {
-                        LOGGER.log(Level.FINE,"Studio is considered killed due to:", e);
-                    }
-                    System.exit(-1);
+                    LOGGER.warn("Bonita Studio process has been killed, terminating tomcat process properly");
+                    LOGGER.debug("Studio is considered killed due to:", e);
+                    shutdownTomcat();
                 }
             }
         });
@@ -84,9 +88,7 @@ public class StudioWatchdogListener implements ServletContextListener {
                 throw new Exception("Invalid timer value : " + timer);
             }
         } catch (final Exception e) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.log(Level.INFO, "org.bonitasoft.studio.watchdog.timer property must be a valid timer value (> 0)");
-            }
+            LOGGER.warn("org.bonitasoft.studio.watchdog.timer property must be a valid timer value (> 0)");
         }
         return timer;
     }
@@ -100,9 +102,7 @@ public class StudioWatchdogListener implements ServletContextListener {
                 throw new Exception("Invalid port range : " + port);
             }
         } catch (final Exception e) {
-            if (LOGGER.isLoggable(Level.INFO)) {
-                LOGGER.log(Level.INFO, "org.bonitasoft.studio.watchdog.port property must be a valid port number [1024->65535]");
-            }
+            LOGGER.warn("org.bonitasoft.studio.watchdog.port property must be a valid port number [1024->65535]");
         }
         return port;
     }
@@ -131,10 +131,49 @@ public class StudioWatchdogListener implements ServletContextListener {
 
             }
         }
-        if (LOGGER.isLoggable(Level.FINE)) {
-            LOGGER.log(Level.FINE, "Bonita Studio JVM is alive");
-        }
+
+        LOGGER.debug("Bonita Studio JVM is alive");
         return true;
     }
+
+    private static void shutdownTomcat() {
+        try {
+            // We expect to have only one MBean server. Get it.
+            MBeanServer mBeanServer = MBeanServerFactory.findMBeanServer(null).get(0);
+
+            // Get Server object name
+            ObjectName name = new ObjectName("Catalina", "type", "Server");
+
+            // Get the server object
+            Server server = (Server) mBeanServer.getAttribute(name, "managedResource");
+            
+            // Get address and port on which we can send the shutdown command
+            String address = server.getAddress();
+            int port = server.getPort();
+
+            // Get the shutdown command that we need to send
+            String shutdown = server.getShutdown();
+
+            // Connect and send the shutdown command            
+            try(
+                    Socket clientSocket = new Socket(address, port);
+                    OutputStream outputStream = clientSocket.getOutputStream();
+            ) {
+                outputStream.write(shutdown.getBytes(Charset.forName("UTF-8")));
+                outputStream.flush();
+                outputStream.close();
+                clientSocket.close();
+            } catch (Exception e) {
+                shutdownTomcatForced(e);
+            }
+        } catch(Exception e) {
+            shutdownTomcatForced(e);
+        }
+   }
+    
+   private static void shutdownTomcatForced(Exception e) {
+       LOGGER.error("Error while trying to shutdown Tomcat (using shutdown command) from watchdog web application. We will call now System.exit(-1)", e);
+       System.exit(-1);
+   } 
 
 }
