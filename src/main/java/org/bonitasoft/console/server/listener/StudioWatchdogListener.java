@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2009 BonitaSoft S.A.
+ * Copyright (C) 2009-2015 Bonitasoft S.A.
  * BonitaSoft, 32 rue Gustave Eiffel - 38000 Grenoble
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
  * Studio Watchdog Servlet.
  * 
  * @author Julien Mege
+ * @author Antoine Mottier
  */
 public class StudioWatchdogListener implements ServletContextListener {
 
@@ -158,7 +159,8 @@ public class StudioWatchdogListener implements ServletContextListener {
             clientSocket.getOutputStream().close();
             clientSocket.close();
         } catch (Exception e) {
-            LOGGER.error("Error while trying to shutdown Tomcat from watchdog web application", e);
+            LOGGER.error("Error while trying to shutdown Tomcat (using shutdown command) from watchdog web application. We will call now System.exit(-1)", e);
+            System.exit(-1);
         }
    }
 
