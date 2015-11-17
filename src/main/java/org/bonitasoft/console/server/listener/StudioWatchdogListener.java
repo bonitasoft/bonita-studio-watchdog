@@ -15,6 +15,7 @@
 package org.bonitasoft.console.server.listener;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -144,7 +145,7 @@ public class StudioWatchdogListener implements ServletContextListener {
 
             // Get the server object
             Server server = (Server) mBeanServer.getAttribute(name, "managedResource");
-
+            
             // Get adress and port on which we can send the shutdown command
             String address = server.getAddress();
             int port = server.getPort();
@@ -152,16 +153,26 @@ public class StudioWatchdogListener implements ServletContextListener {
             // Get the shutdown command that we need to send
             String shutdown = server.getShutdown();
 
-            // Connect and send the shutdown command    	    
-            Socket clientSocket = new Socket(address, port);
-            clientSocket.getOutputStream().write(shutdown.getBytes());
-            clientSocket.getOutputStream().flush();
-            clientSocket.getOutputStream().close();
-            clientSocket.close();
-        } catch (Exception e) {
-            LOGGER.error("Error while trying to shutdown Tomcat (using shutdown command) from watchdog web application. We will call now System.exit(-1)", e);
-            System.exit(-1);
+            // Connect and send the shutdown command            
+            try(
+                    Socket clientSocket = new Socket(address, port);
+                    OutputStream outputStream = clientSocket.getOutputStream();
+            ) {
+                outputStream.write(shutdown.getBytes());
+                outputStream.flush();
+                outputStream.close();
+                clientSocket.close();
+            } catch (Exception e) {
+                shutdownTomcatForced(e);
+            }
+        } catch(Exception e) {
+            shutdownTomcatForced(e);
         }
    }
+    
+   private static void shutdownTomcatForced(Exception e) {
+       LOGGER.error("Error while trying to shutdown Tomcat (using shutdown command) from watchdog web application. We will call now System.exit(-1)", e);
+       System.exit(-1);
+   } 
 
 }
